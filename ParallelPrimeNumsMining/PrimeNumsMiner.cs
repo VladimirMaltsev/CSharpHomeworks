@@ -14,7 +14,7 @@ namespace PrimeNumsMining
         {
             do
             {
-                Console.WriteLine("Enter left and right boarders of a search range: ");
+                Console.WriteLine("> Enter left and right boarders of a search range: ");
                 int l = Convert.ToInt32(Console.ReadLine());
                 int r = Convert.ToInt32(Console.ReadLine());
 
@@ -32,11 +32,11 @@ namespace PrimeNumsMining
 
                 Console.WriteLine("ThreadPool:");
                 sw.Restart();
-                ThreadPoolMiner(l, r);
+                List<int> list = ThreadPoolMiner(l, r);
                 sw.Stop();
                 Console.WriteLine("the prime numbers mining is done. Time elapsed: {0}\n", sw.Elapsed);
 
-                Console.WriteLine("press 'e' to exit or 'enter' to continue...");
+                Console.Write("> press 'e' to exit or 'enter' to continue...\n> ");
             } while (Console.ReadLine() != "e");
         }
 
@@ -136,15 +136,15 @@ namespace PrimeNumsMining
                 handles[handle_i++] = new ManualResetEvent(false);
 
                 ThreadPool.QueueUserWorkItem(o => {
-                    handles[handle_cur_i].Set();
                     CheckPrimeNumsInRange(ref are_nums_prime, left, right);
+                    handles[handle_cur_i].Set();
                 }
                 );
             }
             handles[handle_i] = new ManualResetEvent(false);
             ThreadPool.QueueUserWorkItem(o => {
-                handles[handle_i].Set();
                 CheckPrimeNumsInRange(ref are_nums_prime, i, r);
+                handles[handle_i].Set();
             }
             );
 
