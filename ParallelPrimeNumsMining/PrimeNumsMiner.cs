@@ -12,28 +12,32 @@ namespace PrimeNumsMining
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Enter left and right boarders of a search range: ");
-            int l = Convert.ToInt32(Console.ReadLine());
-            int r = Convert.ToInt32(Console.ReadLine());
-            /*
-            Stopwatch sw = Stopwatch.StartNew();
-            ThreadMiner(l, r);
-            sw.Stop();
-            Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
-            Console.ReadKey();*/
-            /*
-            Stopwatch sw = Stopwatch.StartNew();
-            List <int> list = TaskMiner(l, r);
-            sw.Stop();
-            Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
-            */
+            do
+            {
+                Console.WriteLine("Enter left and right boarders of a search range: ");
+                int l = Convert.ToInt32(Console.ReadLine());
+                int r = Convert.ToInt32(Console.ReadLine());
 
-            Stopwatch sw = Stopwatch.StartNew();
-            List<int> list = ThreadPoolMiner(l, r);
-            sw.Stop();
-            Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
+                Console.WriteLine("Threads:");
+                Stopwatch sw = Stopwatch.StartNew();
+                ThreadMiner(l, r);
+                sw.Stop();
+                Console.WriteLine("the prime numbers mining is done. Time elapsed: {0}\n", sw.Elapsed);
 
-            Console.ReadKey();
+                Console.WriteLine("Tasks:");
+                sw.Restart();
+                TaskMiner(l, r);
+                sw.Stop();
+                Console.WriteLine("the prime numbers mining is done. Time elapsed: {0}\n", sw.Elapsed);
+
+                Console.WriteLine("ThreadPool:");
+                sw.Restart();
+                ThreadPoolMiner(l, r);
+                sw.Stop();
+                Console.WriteLine("the prime numbers mining is done. Time elapsed: {0}\n", sw.Elapsed);
+
+                Console.WriteLine("press 'e' to exit or 'enter' to continue...");
+            } while (Console.ReadLine() != "e");
         }
 
         static bool IsPrime(int num)
