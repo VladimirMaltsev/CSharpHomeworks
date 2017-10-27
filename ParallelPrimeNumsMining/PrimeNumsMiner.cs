@@ -21,14 +21,18 @@ namespace PrimeNumsMining
             sw.Stop();
             Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
             Console.ReadKey();*/
+            /*
+            Stopwatch sw = Stopwatch.StartNew();
+            List <int> list = TaskMiner(l, r);
+            sw.Stop();
+            Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
+            */
 
             Stopwatch sw = Stopwatch.StartNew();
-            List<int> list = TaskMiner(l, r);
+            List<int> list = ThreadPoolMiner(l, r);
             sw.Stop();
             Console.WriteLine("the prime numbers mining is done. Time: {0}", sw.Elapsed);
 
-
-            PrintList(list);
             Console.ReadKey();
         }
 
@@ -107,14 +111,15 @@ namespace PrimeNumsMining
             return MinePrimeNums(are_nums_prime);
         }
 
-        static ThreadPoolMiner(int l, int r)
+        static List<int> ThreadPoolMiner(int l, int r)
         {
             bool[] are_nums_prime = new bool[r + 1];
             for (int j = 0; j < are_nums_prime.Length; j++)
                 are_nums_prime[j] = false;
 
             int thread_count = 7;
-            List<Thread> threads = new List<Thread>();
+            ManualResetEvent[] handles = new ManualResetEvent[thread_count];
+            int handle_i = 0;
 
             int step = (r - l) / thread_count;
 
@@ -123,18 +128,23 @@ namespace PrimeNumsMining
             {
                 int left = i;
                 int right = i + step - 1;
-                Thread thread = ThreadPool.QueueUserWorkItem(new WaitCallback(CheckPrimeNumsInRange), );
-                threads.Add(thread);
-                thread.Start();
-            }
-            Thread lastthread = new Thread(() => CheckPrimeNumsInRange(ref are_nums_prime, i, r));
-            threads.Add(lastthread);
-            lastthread.Start();
+                int handle_cur_i = handle_i;
+                handles[handle_i++] = new ManualResetEvent(false);
 
-            foreach (Thread thread in threads)
-            {
-                thread.Join();
+                ThreadPool.QueueUserWorkItem(o => {
+                    handles[handle_cur_i].Set();
+                    CheckPrimeNumsInRange(ref are_nums_prime, left, right);
+                }
+                );
             }
+            handles[handle_i] = new ManualResetEvent(false);
+            ThreadPool.QueueUserWorkItem(o => {
+                handles[handle_i].Set();
+                CheckPrimeNumsInRange(ref are_nums_prime, i, r);
+            }
+            );
+
+            WaitHandle.WaitAll(handles);
 
             return MinePrimeNums(are_nums_prime);
         }
@@ -148,8 +158,6 @@ namespace PrimeNumsMining
             return primeNums;
         }
 
-
-
         static void CheckPrimeNumsInRange(ref bool[] are_nums_prime, int l, int r)
         {
             for (int i = l; i <= r; i++)
@@ -159,7 +167,6 @@ namespace PrimeNumsMining
 
         }
 
-
         static void PrintList(List<int> l)
         {
             foreach (int i in l)
@@ -167,10 +174,5 @@ namespace PrimeNumsMining
                 Console.Write("{0} ", i);
             }
         }
-    }
-
-    public class ThreadInfo
-    {
-        public left
     }
 }
