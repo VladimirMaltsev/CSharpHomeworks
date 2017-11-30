@@ -1,147 +1,172 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace ParallelBSTree
 {
-    class RBTree// <TKey, TValue>
+    class BsTree // <TKey, TValue>
     {
-        private Node root = null;
-            
-        internal Node InsertNode(int key, int val)
+        public Node _root = null;
+
+        internal Node Insert(int key, int val)
         {
-            if (root == null)
-                return root = new Node(key, val);
-            
-            Node current = root;
-            Node parent = null;
-
-            while (current != null)
+            while (true)
             {
-                if (current.key.CompareTo(key) == 0)
-                    return current;
-                parent = current;
-                current = key.CompareTo(current.key) < 0 ? 
-                    current.left : current.right;
-            }
+                if (_root == null)
+                    return _root = new Node(key, val);
 
-            //setup new node
-            Node x = new Node(key, val, parent);
-           
-            //insert node in tree
-            if (parent != null)
-            {
-                if (key.CompareTo(parent.data) < 0)
-                    parent.left = x;
-                else
-                    parent.right = x;
-            }
-            else
-                root = x;
+                Node current = _root;
+                Node parent = null;
 
-            return x;
+                while (current != null)
+                {
+                    if (current.key.CompareTo(key) == 0)
+                        return current;
+                    parent = current;
+                    current = key.CompareTo(current.key) < 0 ? current.left : current.right;
+                }
+                try
+                {
+                    lock (parent)
+                    {
+                        Node x = new Node(key, val, parent);
+
+                        //insert node in tree
+                        if (key.CompareTo(parent.data) < 0)
+                            parent.left = x;
+                        else
+                            parent.right = x;
+
+                        return x;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    continue;
+                }
+            }
         }
 
-       
-        internal void DeleteNode(Node z)
+
+        internal void Delete(Node z)
         {
-            Node y, x = null;
+            while (true)
+            {
 
-            if (z == null) return;
+                if (z == null) return;
 
+                var victim = FindVictim(z);
+                var orphan = victim.right;
+
+                try
+                {
+                    lock (z)
+                    {
+                        lock (victim)
+                        {
+                            if (FindVictim(z) != victim || orphan != null && orphan.parent != victim)
+                                continue;
+                              
+                            if (orphan != null) orphan.parent = victim.parent;
+                            if (victim.parent != null)
+                            {
+                                if (victim == victim.parent.left)
+                                    victim.parent.left = orphan;
+                                else
+                                    victim.parent.right = orphan;
+                            }
+                            else
+                            {
+                                _root = orphan;
+                            }
+
+                            if (victim == z) return;
+
+                            z.key = victim.key;
+                            z.data = victim.data;
+                        }
+
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // ignored
+                }
+            }
+
+        }
+
+        private Node FindVictim(Node z)
+        {
+            Node victim = null;
             if (z.left == null || z.right == null)
             {
-                y = z;
+                victim = z;
             }
             else
             {
-                y = z.right;
-                while (y.left != null)
-                    y = y.left;
+                victim = z.right;
+                while (victim.left != null)
+                    victim = victim.left;
             }
-
-            //x is y`s only child
-            
-            x = y.left ?? y.right;
-
-            //remove y from the parent chain
-           
-            if (x != null) x.parent = y.parent;
-            if (y.parent != null)
-            {
-                if (y == y.parent.left)
-                    y.parent.left = x;
-                else
-                    y.parent.right = x;
-            }
-            else
-            {
-                root = x;
-            }
-
-            if (y == z) return;
-            
-            z.key = y.key;
-            z.data = y.data;
+            return victim;
         }
 
         internal Node FindNode(int key)
         {
-            var current = root;
-            while (current != null)
-            {
-                if (key.CompareTo(current.key) == 0)
+            while (true) {
+                var current = _root;
+                while (current != null)
                 {
-                    return (current);
+                    if (key.CompareTo(current.key) == 0)
+                    {
+                        try
+                        {
+                            lock (current)
+                            {
+                                return (current);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            continue;
+                        }
+                        
+                    }
+                    current = key.CompareTo(current.key) < 0 ? current.left : current.right;
                 }
-                else
-                    current = key.CompareTo(current.key) < 0 ?
-                        current.left : current.right;
-            }
-            return null;
-        }
-
-        internal Node GetRoot()
-        {
-            return root;
-        }
-
-        internal bool IsEmpty()
-        {
-            return root == null;
-        }
-
-        internal void PrintTree(Node x)
-        {
-            while (true)
-            {
-                if (this.IsEmpty())
-                {
-                    Console.WriteLine("Tree is empty");
-                    return;
-                }
-                
-                if (x.right != null) PrintTree(x.right);
-
-                for (var i = 0; i < GetNodeHeight(x) * 2; i++)
-                    Console.Write(" ");
-                
-                if (x.parent != null)
-                {
-                    Console.Write(x == x.parent.right ? "/" : "\\");
-                }
-
-                if (x.left != null)
-                {
-                    x = x.left;
-                    continue;
-                }
-                break;
+                return null;
             }
         }
+        
+        internal void PrintTree (Node x)
+        {
+            if (_root == null)
+            {
+                Console.WriteLine("Tree is empty");
+                return;
+            }
+            if (x.right != null) PrintTree(x.right);
 
+            for (int i = 0; i < GetNodeHeight(x) * 2; i++)
+                Console.Write(" ");
+            if (x.parent != null)
+            {
+                if (x == x.parent.right)
+                    Console.Write("/");
+                else Console.Write("\\");
+            }
+            
+                Console.WriteLine(x.data);
+            
+
+            if (x.left != null) PrintTree(x.left);           
+        }
+        
         private int GetNodeHeight(Node x)
         {
             int height = 0;
-            Node current = root;
+            Node current = _root;
             while (current != null && x != current)
             {
                 height++;
