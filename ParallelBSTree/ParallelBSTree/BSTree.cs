@@ -1,147 +1,229 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.Remoting.Messaging;
 using System.Threading;
 
 namespace ParallelBSTree
 {
     class BsTree // <TKey, TValue>
     {
-        public Node _root = null;
+        public Node Root = null;
 
         internal Node Insert(int key, int val)
         {
-            while (true)
+            lock (this)
             {
-                if (_root == null)
-                    return _root = new Node(key, val);
-
-                Node current = _root;
-                Node parent = null;
-
-                while (current != null)
-                {
-                    if (current.key.CompareTo(key) == 0)
-                        return current;
-                    parent = current;
-                    current = key.CompareTo(current.key) < 0 ? current.left : current.right;
-                }
-                try
-                {
-                    lock (parent)
-                    {
-                        Node x = new Node(key, val, parent);
-
-                        //insert node in tree
-                        if (key.CompareTo(parent.data) < 0)
-                            parent.left = x;
-                        else
-                            parent.right = x;
-
-                        return x;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    continue;
-                }
+                if (Root == null)
+                    return Root = new Node(key, val);
             }
+            
+            Node current = Root;
+
+            while (current != null)
+            {
+                if (current.parent != null)
+                    lock (current.parent)
+                    {
+                        lock (current)
+                        {
+                            if (current.key.CompareTo(key) == 0)
+                                return current;
+                            
+                            if (key < current.key)
+                            {
+                                if (current.left == null)
+                                    return current.left = new Node(key, val, current);
+                                
+                                lock (current.left)
+                                    current = current.left;
+                                continue;
+                            }
+                            
+                            if (current.right == null)
+                                return current.right = new Node(key, val, current);
+                            
+                            
+                            lock (current.right)
+                                current = current.right;
+                        }
+                    }
+                else
+                    lock (current)
+                    {
+                        if (current.key.CompareTo(key) == 0)
+                            return current;
+                            
+                        if (key < current.key)
+                        {
+                            if (current.left == null)
+                                return current.left = new Node(key, val, current);
+                                
+                            lock (current.left)
+                                current = current.left;
+                            continue;
+                        }
+                            
+                        if (current.right == null)
+                            return current.right = new Node(key, val, current);
+                            
+                            
+                        lock (current.right)
+                            current = current.right;
+                    }
+                
+                
+            }
+            return null;
         }
 
 
-        internal void Delete(Node z)
+        internal void Remove(int key)
         {
-            while (true)
-            {
+            var z = Search(key);
+            if (z == null) return;
+            
+            var s = GetSuccessor(z);
 
-                if (z == null) return;
-
-                var victim = FindVictim(z);
-                var orphan = victim.right;
-
-                try
+            if (z.parent != null)
+                lock (z.parent)
                 {
                     lock (z)
                     {
-                        lock (victim)
-                        {
-                            if (FindVictim(z) != victim || orphan != null && orphan.parent != victim)
-                                continue;
-                              
-                            if (orphan != null) orphan.parent = victim.parent;
-                            if (victim.parent != null)
+                        if (s != null)
+                            lock (s)
                             {
-                                if (victim == victim.parent.left)
-                                    victim.parent.left = orphan;
+                                if (z.left == null || z.right == null)
+                                {
+                                    if (z.parent.left == z)
+                                        z.parent.left = s;
+                                    else
+                                        z.parent.right = s;
+                                    s.parent = z.parent;
+                                }
                                 else
-                                    victim.parent.right = orphan;
+                                {
+                                    if (z.right == s)
+                                    {
+                                        if (z.parent.left == z)
+                                            z.parent.left = s;
+                                        else
+                                            z.parent.right = s;
+                                        s.parent = z.parent;
+                                        s.left = z.left;
+                                    }
+                                    else
+                                    {
+                                        z.key = s.key;
+                                        z.data = s.data;
+                                        s.parent.left = s.right;
+                                        if (s.right != null)
+                                            s.right.parent = s.parent;
+                                    }
+                                }
+                            }
+                        else if (z.parent.left == z)
+                            z.parent.left = null;
+                        else
+                            z.parent.right = null;
+                    }
+                }
+            else
+                lock (z)
+                {
+                    if (s != null)
+                        lock (s)
+                        {
+                            if (z.left == null || z.right == null)
+                            {
+                                s.parent = null;
+                                Root = s;
                             }
                             else
                             {
-                                _root = orphan;
-                            }
-
-                            if (victim == z) return;
-
-                            z.key = victim.key;
-                            z.data = victim.data;
-                        }
-
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // ignored
-                }
-            }
-
-        }
-
-        private Node FindVictim(Node z)
-        {
-            Node victim = null;
-            if (z.left == null || z.right == null)
-            {
-                victim = z;
-            }
-            else
-            {
-                victim = z.right;
-                while (victim.left != null)
-                    victim = victim.left;
-            }
-            return victim;
-        }
-
-        internal Node FindNode(int key)
-        {
-            while (true) {
-                var current = _root;
-                while (current != null)
-                {
-                    if (key.CompareTo(current.key) == 0)
-                    {
-                        try
-                        {
-                            lock (current)
-                            {
-                                return (current);
+                                if (z.right == s)
+                                {
+                                    s.parent = null;
+                                    s.left = z.left;
+                                    z.left.parent = s;
+                                    Root = s;
+                                }
+                                else
+                                {
+                                    s.parent.left = s.right;
+                                    if (s.right != null)
+                                        s.right.parent = s.parent;
+                                    s.parent = null;
+                                    z.left.parent = s;
+                                    Root = s;
+                                }
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            continue;
-                        }
-                        
-                    }
-                    current = key.CompareTo(current.key) < 0 ? current.left : current.right;
+                    else
+                        Root = null;
                 }
+        }
+
+        private Node GetSuccessor(Node current)
+        {
+            switch (current.left)
+            {
+                case null when current.right == null:
+                    return null;
+                case null:
+                    return current.right;
+                default:
+                    if (current.right == null)
+                        return current.left;
+
+                    return Min(current.right);
+            }
+        }
+
+        private Node Min(Node z)
+        {
+            while (true)
+            {
+                lock (z)
+                {
+                    if (z.left == null)
+                        return z;
+                }
+                z = z.left;
+            }
+        }
+
+        internal Node Search(int key)
+        {
+            var current = Root;
+            if (null == current)
                 return null;
+            
+            while (current != null)
+            {
+                if (current.parent != null)
+                    lock (current.parent)
+                    {
+                        lock (current)
+                        {
+                            if (key.CompareTo(current.key) == 0)  
+                                return current;
+                            current = key.CompareTo(current.key) < 0 ? current.left : current.right;
+                        }
+                    }
+                else
+                    lock (current)
+                    {
+                        if (key.CompareTo(current.key) == 0)  
+                            return current;
+                        current = key.CompareTo(current.key) < 0 ? current.left : current.right;
+                    }
             }
+            return null;
         }
         
         internal void PrintTree (Node x)
         {
-            if (_root == null)
+            if (Root == null)
             {
                 Console.WriteLine("Tree is empty");
                 return;
@@ -166,7 +248,7 @@ namespace ParallelBSTree
         private int GetNodeHeight(Node x)
         {
             int height = 0;
-            Node current = _root;
+            Node current = Root;
             while (current != null && x != current)
             {
                 height++;
