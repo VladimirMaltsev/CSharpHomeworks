@@ -79,89 +79,118 @@ namespace ParallelBSTree
 
         internal void Remove(int key)
         {
-            var z = Search(key);
-            if (z == null) return;
-            
-            var s = GetSuccessor(z);
-
-            if (z.parent != null)
-                lock (z.parent)
-                {
-                    lock (z)
+            while (true)
+            {
+                var z = Search(key);
+                if (z == null) return;
+    
+                var s = GetSuccessor(z);
+    
+                if (z.parent != null)
+    
+                    try
                     {
-                        if (s != null)
-                            lock (s)
-                            {
-                                if (z.left == null || z.right == null)
-                                {
-                                    if (z.parent.left == z)
-                                        z.parent.left = s;
-                                    else
-                                        z.parent.right = s;
-                                    s.parent = z.parent;
-                                }
-                                else
-                                {
-                                    if (z.right == s)
-                                    {
-                                        if (z.parent.left == z)
-                                            z.parent.left = s;
-                                        else
-                                            z.parent.right = s;
-                                        s.parent = z.parent;
-                                        s.left = z.left;
-                                    }
-                                    else
-                                    {
-                                        z.key = s.key;
-                                        z.data = s.data;
-                                        s.parent.left = s.right;
-                                        if (s.right != null)
-                                            s.right.parent = s.parent;
-                                    }
-                                }
-                            }
-                        else if (z.parent.left == z)
-                            z.parent.left = null;
-                        else
-                            z.parent.right = null;
-                    }
-                }
-            else
-                lock (z)
-                {
-                    if (s != null)
-                        lock (s)
+                        lock (z.parent)
                         {
-                            if (z.left == null || z.right == null)
+                            lock (z)
                             {
-                                s.parent = null;
-                                Root = s;
-                            }
-                            else
-                            {
-                                if (z.right == s)
+                                try
                                 {
-                                    s.parent = null;
-                                    s.left = z.left;
-                                    z.left.parent = s;
-                                    Root = s;
+
+
+                                    
+                                    if (s != null)
+                                        lock (s)
+                                        {
+                                            if (z.left == null || z.right == null)
+                                            {
+                                                if (z.parent.left == z)
+                                                    z.parent.left = s;
+                                                else
+                                                    z.parent.right = s;
+                                                s.parent = z.parent;
+                                            }
+                                            else
+                                            {
+                                                if (z.right == s)
+                                                {
+                                                    if (z.parent.left == z)
+                                                        z.parent.left = s;
+                                                    else
+                                                        z.parent.right = s;
+                                                    s.parent = z.parent;
+                                                    s.left = z.left;
+                                                }
+                                                else
+                                                {
+                                                    z.key = s.key;
+                                                    z.data = s.data;
+                                                    s.parent.left = s.right;
+                                                    if (s.right != null)
+                                                        s.right.parent = s.parent;
+                                                }
+                                            }
+                                        }
+                                    else if (z.parent.left == z)
+                                        z.parent.left = null;
+                                    else
+                                        z.parent.right = null;
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    s.parent.left = s.right;
-                                    if (s.right != null)
-                                        s.right.parent = s.parent;
-                                    s.parent = null;
-                                    z.left.parent = s;
-                                    Root = s;
+                                    continue;
                                 }
                             }
                         }
-                    else
-                        Root = null;
-                }
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+                else
+                    lock (z)
+                    {
+                        if (s != null)
+                            try
+                            {
+                                lock (s)
+                                {
+                                    if (z.left == null || z.right == null)
+                                    {
+                                        s.parent = null;
+                                        Root = s;
+                                    }
+                                    else
+                                    {
+                                        if (z.right == s)
+                                        {
+                                            s.parent = null;
+                                            s.left = z.left;
+                                            z.left.parent = s;
+                                            Root = s;
+                                        }
+                                        else
+                                        {
+                                            s.parent.left = s.right;
+                                            if (s.right != null)
+                                                s.right.parent = s.parent;
+                                            s.parent = null;
+                                            z.left.parent = s;
+                                            Root = s;
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                continue;
+                            }
+                        
+                        else
+                            Root = null;
+                    }
         }
+    }
 
         private Node GetSuccessor(Node current)
         {
